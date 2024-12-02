@@ -2,18 +2,22 @@ from truffle_python_sdk import TruffleApp, tool, Client
 from typing import List
 from pydantic import ConfigDict, BaseModel
 
+
 class Operation(BaseModel):
     """
     Represents a calculator operation.
     """
+
     operation_type: str
     operands: tuple
     result: float
+
 
 class CalculatorApp(TruffleApp):
     """
     A calculator app that supports basic arithmetic operations with history and memory.
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     history: List[Operation] = []
     memory: float = 0.0
@@ -24,7 +28,9 @@ class CalculatorApp(TruffleApp):
         Add two numbers.
         """
         result = a + b
-        self.history.append(Operation(operation_type='add', operands=(a, b), result=result))
+        self.history.append(
+            Operation(operation_type="add", operands=(a, b), result=result)
+        )
         return result
 
     @tool()
@@ -33,7 +39,9 @@ class CalculatorApp(TruffleApp):
         Subtract two numbers.
         """
         result = a - b
-        self.history.append(Operation(operation_type='subtract', operands=(a, b), result=result))
+        self.history.append(
+            Operation(operation_type="subtract", operands=(a, b), result=result)
+        )
         return result
 
     @tool()
@@ -42,7 +50,9 @@ class CalculatorApp(TruffleApp):
         Multiply two numbers.
         """
         result = a * b
-        self.history.append(Operation(operation_type='multiply', operands=(a, b), result=result))
+        self.history.append(
+            Operation(operation_type="multiply", operands=(a, b), result=result)
+        )
         return result
 
     @tool()
@@ -53,7 +63,9 @@ class CalculatorApp(TruffleApp):
         if b == 0:
             return "Error: Cannot divide by zero."
         result = a / b
-        self.history.append(Operation(operation_type='divide', operands=(a, b), result=result))
+        self.history.append(
+            Operation(operation_type="divide", operands=(a, b), result=result)
+        )
         return str(result)
 
     @tool()
@@ -61,8 +73,10 @@ class CalculatorApp(TruffleApp):
         """
         Raise a number to the power of another number.
         """
-        result = a ** b
-        self.history.append(Operation(operation_type='power', operands=(a, b), result=result))
+        result = a**b
+        self.history.append(
+            Operation(operation_type="power", operands=(a, b), result=result)
+        )
         return result
 
     @tool()
@@ -71,7 +85,9 @@ class CalculatorApp(TruffleApp):
         Calculate the modulo of two numbers.
         """
         result = a % b
-        self.history.append(Operation(operation_type='modulo', operands=(a, b), result=result))
+        self.history.append(
+            Operation(operation_type="modulo", operands=(a, b), result=result)
+        )
         return result
 
     @tool()
@@ -116,6 +132,7 @@ class CalculatorApp(TruffleApp):
         self.memory = 0.0
         return "Memory cleared."
 
+
 app = CalculatorApp()
 
 if __name__ == "__main__":
@@ -123,9 +140,9 @@ if __name__ == "__main__":
     client = Client()
     client.start(
         app=app,
-        mode='rest',  # Can be 'rest' or 'grpc'
-        host='0.0.0.0',
-        port=8000,    # Or any preferred port
-        log_level='info',
-        reload=False
+        mode="rest",  # Can be 'rest' or 'grpc'
+        host="0.0.0.0",
+        port=8000,  # Or any preferred port
+        log_level="info",
+        reload=False,
     )

@@ -5,30 +5,45 @@ import inspect
 from truffle_python_sdk.client import Client
 from truffle_python_sdk.app import TruffleApp
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Truffle CLI - Run your Truffle applications."
     )
-    subparsers = parser.add_subparsers(dest='command', help='Sub-commands')
+    subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 
     # Sub-command for running the app in REST mode
-    parser_run_rest = subparsers.add_parser('run:rest', help='Run the app in REST mode')
-    parser_run_rest.add_argument('module', help='The application module to run')
-    parser_run_rest.add_argument('--host', type=str, default='0.0.0.0', help='Host address')
-    parser_run_rest.add_argument('--port', type=int, default=None, help='Port number')
-    parser_run_rest.add_argument('--log-level', type=str, default='info', help='Logging level')
-    parser_run_rest.add_argument('--reload', action='store_true', help='Enable auto-reload')
+    parser_run_rest = subparsers.add_parser("run:rest", help="Run the app in REST mode")
+    parser_run_rest.add_argument("module", help="The application module to run")
+    parser_run_rest.add_argument(
+        "--host", type=str, default="0.0.0.0", help="Host address"
+    )
+    parser_run_rest.add_argument("--port", type=int, default=None, help="Port number")
+    parser_run_rest.add_argument(
+        "--log-level", type=str, default="info", help="Logging level"
+    )
+    parser_run_rest.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload"
+    )
 
     # Sub-command for running the app in gRPC mode
-    parser_run_grpc = subparsers.add_parser('run:grpc', help='Run the app in gRPC mode')
-    parser_run_grpc.add_argument('module', help='The application module to run')
-    parser_run_grpc.add_argument('--host', type=str, default='0.0.0.0', help='Host address')
-    parser_run_grpc.add_argument('--port', type=int, default=None, help='Port number')
-    parser_run_grpc.add_argument('--log-level', type=str, default='info', help='Logging level')
+    parser_run_grpc = subparsers.add_parser("run:grpc", help="Run the app in gRPC mode")
+    parser_run_grpc.add_argument("module", help="The application module to run")
+    parser_run_grpc.add_argument(
+        "--host", type=str, default="0.0.0.0", help="Host address"
+    )
+    parser_run_grpc.add_argument("--port", type=int, default=None, help="Port number")
+    parser_run_grpc.add_argument(
+        "--log-level", type=str, default="info", help="Logging level"
+    )
 
     # Sub-command for generating the .proto files
-    parser_proto = subparsers.add_parser('proto', help='Generate .proto files without starting a server')
-    parser_proto.add_argument('module', help='The application module to generate .proto files from')
+    parser_proto = subparsers.add_parser(
+        "proto", help="Generate .proto files without starting a server"
+    )
+    parser_proto.add_argument(
+        "module", help="The application module to generate .proto files from"
+    )
 
     args = parser.parse_args()
 
@@ -37,7 +52,7 @@ def main():
         sys.exit(1)
 
     # Import the specified module
-    module_name = args.module.replace('.py', '').replace('/', '.').replace('\\', '.')
+    module_name = args.module.replace(".py", "").replace("/", ".").replace("\\", ".")
     try:
         app_module = importlib.import_module(module_name)
     except ImportError as e:
@@ -59,28 +74,29 @@ def main():
     client = Client()
 
     # Handle the sub-commands
-    if args.command == 'run:rest':
+    if args.command == "run:rest":
         client.start(
             app=app,
-            mode='rest',
+            mode="rest",
             host=args.host,
             port=args.port,
             log_level=args.log_level,
-            reload=args.reload
+            reload=args.reload,
         )
-    elif args.command == 'run:grpc':
+    elif args.command == "run:grpc":
         client.start(
             app=app,
-            mode='grpc',
+            mode="grpc",
             host=args.host,
             port=args.port,
-            log_level=args.log_level
+            log_level=args.log_level,
         )
-    elif args.command == 'proto':
+    elif args.command == "proto":
         client.generate_proto_files(app)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

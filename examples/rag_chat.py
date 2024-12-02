@@ -2,12 +2,16 @@ from truffle_python_sdk import TruffleApp, tool, Client
 import numpy as np
 from typing import List, Dict
 
+
 class ChatApp(TruffleApp):
     """
     A Retrieval-Augmented Generation Chat Application.
     """
+
     conversation: List[Dict[str, str]] = []
-    knowledge_base: List[Dict[str, np.ndarray]] = []  # Stores texts and their embeddings
+    knowledge_base: List[Dict[str, np.ndarray]] = (
+        []
+    )  # Stores texts and their embeddings
     client: Client = Client()
 
     def add_to_knowledge_base(self, text: str):
@@ -17,10 +21,7 @@ class ChatApp(TruffleApp):
         # Get embedding for the text using client's embed method
         embedding_vector = np.array(self.client.embed(text))
         # Store the text and its embedding
-        self.knowledge_base.append({
-            'text': text,
-            'embedding': embedding_vector
-        })
+        self.knowledge_base.append({"text": text, "embedding": embedding_vector})
 
     def retrieve_relevant_docs(self, query: str, top_k: int = 3) -> List[str]:
         """
@@ -29,10 +30,12 @@ class ChatApp(TruffleApp):
         query_embedding = np.array(self.client.embed(query))
         similarities = []
         for doc in self.knowledge_base:
-            doc_embedding = doc['embedding']
+            doc_embedding = doc["embedding"]
             # Compute cosine similarity
-            similarity = np.dot(query_embedding, doc_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding))
-            similarities.append((similarity, doc['text']))
+            similarity = np.dot(query_embedding, doc_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
+            )
+            similarities.append((similarity, doc["text"]))
         # Sort the documents by similarity in descending order
         similarities.sort(reverse=True)
         # Return the top_k most similar documents
@@ -76,6 +79,7 @@ class ChatApp(TruffleApp):
 
         return response_text
 
+
 app = ChatApp()
 
 if __name__ == "__main__":
@@ -83,9 +87,9 @@ if __name__ == "__main__":
     client = Client()
     client.start(
         app=app,
-        mode='rest',  # Can be 'rest' or 'grpc'
-        host='0.0.0.0',
-        port=8000,    # Or any preferred port
-        log_level='info',
-        reload=False
+        mode="rest",  # Can be 'rest' or 'grpc'
+        host="0.0.0.0",
+        port=8000,  # Or any preferred port
+        log_level="info",
+        reload=False,
     )
