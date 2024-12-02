@@ -1,14 +1,12 @@
-from truffle_sdk import App, tool
+from truffle_python_sdk import TruffleApp, tool
 
-class EchoApp(App):
+class EchoApp(TruffleApp):
 
     @tool()
     def echo(self, message: str) -> str:
         return message
 
-echo_app = EchoApp()
+app = EchoApp()
 
 if __name__ == "__main__":
-    import truffle
-
-    truffle.start(echo_app)
+    app.start()

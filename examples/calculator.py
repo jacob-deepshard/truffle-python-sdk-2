@@ -1,4 +1,5 @@
-from truffle_sdk import App, tool
+from truffle_python_sdk import TruffleApp, tool
+from typing import List
 
 class Operation:
     """
@@ -9,14 +10,12 @@ class Operation:
         self.operands = operands
         self.result = result
 
-class CalculatorApp(App):
+class CalculatorApp(TruffleApp):
     """
     A calculator app that supports basic arithmetic operations with history and memory.
     """
-    def __init__(self):
-        super().__init__()
-        self.history = []  # Stack to store Operation instances
-        self.memory = 0    # Memory storage
+    history: List[Operation] = []
+    memory: float = 0.0
 
     @tool()
     def add(self, a: float, b: float) -> float:
@@ -51,7 +50,7 @@ class CalculatorApp(App):
         Divide two numbers.
         """
         if b == 0:
-            raise ValueError("Cannot divide by zero.")
+            return "Error: Cannot divide by zero."
         result = a / b
         self.history.append(Operation('divide', (a, b), result))
         return result
@@ -86,9 +85,9 @@ class CalculatorApp(App):
             if self.history:
                 return self.history[-1].result
             else:
-                return 0  # No previous operations
+                return 0.0  # No previous operations
         else:
-            return 0  # History is empty
+            return 0.0  # History is empty
 
     @tool()
     def store_memory(self) -> str:
@@ -113,12 +112,10 @@ class CalculatorApp(App):
         """
         Clear the memory storage.
         """
-        self.memory = 0
+        self.memory = 0.0
         return "Memory cleared."
 
-calculator_app = CalculatorApp()
+app = CalculatorApp()
 
 if __name__ == "__main__":
-    import truffle
-
-    truffle.start(calculator_app)
+    app.start()

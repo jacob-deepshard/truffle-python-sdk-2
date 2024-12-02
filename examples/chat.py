@@ -1,8 +1,8 @@
-from truffle_sdk import App, tool
-from dylans_truffle_sdk import completion, embedding
+from truffle_python_sdk import TruffleApp, tool
+from dylans_truffle_sdk import completion
 from typing import List
 
-class ChatApp(App):
+class ChatApp(TruffleApp):
     conversation: List[str] = []
 
     @tool()
@@ -15,13 +15,11 @@ class ChatApp(App):
         response = completion(self.conversation)
 
         # Add the assistant's response to the conversation
-        self.conversation.append(response)
+        self.conversation.append(f"Assistant: {response}")
 
         return response
 
-chat_app = ChatApp()
+app = ChatApp()
 
 if __name__ == "__main__":
-    import truffle
-
-    truffle.start(chat_app)
+    app.start()
