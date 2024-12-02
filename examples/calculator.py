@@ -117,4 +117,8 @@ class CalculatorApp(App):
         return "Memory cleared."
 
 calculator_app = CalculatorApp()
-calculator_app.start()
+
+if __name__ == "__main__":
+    import truffle
+
+    truffle.start(calculator_app)

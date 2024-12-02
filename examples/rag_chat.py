@@ -58,4 +58,8 @@ class ChatApp(App):
         return response
 
 chat_app = ChatApp()
-chat_app.start()
+
+if __name__ == "__main__":
+    import truffle
+
+    truffle.start(chat_app)

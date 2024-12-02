@@ -7,4 +7,8 @@ class EchoApp(App):
         return message
 
 echo_app = EchoApp()
-echo_app.start()
+
+if __name__ == "__main__":
+    import truffle
+
+    truffle.start(echo_app)
