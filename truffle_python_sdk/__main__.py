@@ -2,7 +2,8 @@ import sys
 import importlib
 import argparse
 import inspect
-from truffle_python_sdk import TruffleApp
+from truffle_python_sdk.client import Client
+from truffle_python_sdk.app import TruffleApp
 
 def main():
     parser = argparse.ArgumentParser(
@@ -54,9 +55,13 @@ def main():
         print(f"No instance of TruffleApp found in module '{module_name}'.")
         sys.exit(1)
 
+    # Create a Client instance
+    client = Client()
+
     # Handle the sub-commands
     if args.command == 'run:rest':
-        app.start(
+        client.start(
+            app=app,
             mode='rest',
             host=args.host,
             port=args.port,
@@ -64,14 +69,15 @@ def main():
             reload=args.reload
         )
     elif args.command == 'run:grpc':
-        app.start(
+        client.start(
+            app=app,
             mode='grpc',
             host=args.host,
             port=args.port,
             log_level=args.log_level
         )
     elif args.command == 'proto':
-        app.generate_proto_files()
+        client.generate_proto_files(app)
     else:
         parser.print_help()
         sys.exit(1)

@@ -1,5 +1,4 @@
-from truffle_python_sdk import TruffleApp, utils
-from dylans_truffle_sdk import completion, embedding
+from truffle_python_sdk import TruffleApp, tool, Client
 import numpy as np
 from typing import List, Dict
 
@@ -9,13 +8,14 @@ class ChatApp(TruffleApp):
     """
     conversation: List[Dict[str, str]] = []
     knowledge_base: List[Dict[str, np.ndarray]] = []  # Stores texts and their embeddings
+    client: Client = Client()
 
     def add_to_knowledge_base(self, text: str):
         """
         Add text to the knowledge base along with its embedding.
         """
-        # Get embedding for the text
-        embedding_vector = np.array(embedding(text))
+        # Get embedding for the text using client's embed method
+        embedding_vector = np.array(self.client.embed(text))
         # Store the text and its embedding
         self.knowledge_base.append({
             'text': text,
@@ -26,20 +26,20 @@ class ChatApp(TruffleApp):
         """
         Retrieve the most relevant documents from the knowledge base for the given query.
         """
-        query_embedding = np.array(embedding(query))
+        query_embedding = np.array(self.client.embed(query))
         similarities = []
         for doc in self.knowledge_base:
             doc_embedding = doc['embedding']
-            # Compute dot product similarity
-            similarity = np.dot(query_embedding, doc_embedding)
+            # Compute cosine similarity
+            similarity = np.dot(query_embedding, doc_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding))
             similarities.append((similarity, doc['text']))
         # Sort the documents by similarity in descending order
-        similarities.sort(reverse=True, key=lambda x: x[0])
+        similarities.sort(reverse=True)
         # Return the top_k most similar documents
         relevant_texts = [text for _, text in similarities[:top_k]]
         return relevant_texts
 
-    @utils()
+    @tool()
     def add_knowledge(self, text: str) -> str:
         """
         Add text to the knowledge base via an API endpoint.
@@ -47,7 +47,7 @@ class ChatApp(TruffleApp):
         self.add_to_knowledge_base(text)
         return f"Added to knowledge base: {text}"
 
-    @utils()
+    @tool()
     def chat(self, message: str) -> str:
         """
         Chat method to handle user messages and generate responses.
@@ -68,16 +68,24 @@ class ChatApp(TruffleApp):
             prompt += f"- {doc}\n"
         prompt += "\nAssistant:"
 
-        # Generate a response (for simplicity, echoing the message)
-        # In a real application, integrate with a language model here
-        response = completion(prompt)
+        # Generate a response using the client's completion method
+        response_text = self.client.completion(prompt)
 
         # Add the assistant's response to the conversation
-        self.conversation.append({"role": "assistant", "message": response})
+        self.conversation.append({"role": "assistant", "message": response_text})
 
-        return response
+        return response_text
 
 app = ChatApp()
 
 if __name__ == "__main__":
-    app.start()
+    # Start the app using the Client
+    client = Client()
+    client.start(
+        app=app,
+        mode='rest',  # Can be 'rest' or 'grpc'
+        host='0.0.0.0',
+        port=8000,    # Or any preferred port
+        log_level='info',
+        reload=False
+    )

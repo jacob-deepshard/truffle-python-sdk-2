@@ -1,4 +1,4 @@
-from truffle_python_sdk import TruffleApp, utils
+from truffle_python_sdk import TruffleApp, tool, Client
 from typing import List
 from pydantic import ConfigDict, BaseModel
 
@@ -18,63 +18,63 @@ class CalculatorApp(TruffleApp):
     history: List[Operation] = []
     memory: float = 0.0
 
-    @utils()
+    @tool()
     def add(self, a: float, b: float) -> float:
         """
         Add two numbers.
         """
         result = a + b
-        self.history.append(Operation('add', (a, b), result))
+        self.history.append(Operation(operation_type='add', operands=(a, b), result=result))
         return result
 
-    @utils()
+    @tool()
     def subtract(self, a: float, b: float) -> float:
         """
         Subtract two numbers.
         """
         result = a - b
-        self.history.append(Operation('subtract', (a, b), result))
+        self.history.append(Operation(operation_type='subtract', operands=(a, b), result=result))
         return result
 
-    @utils()
+    @tool()
     def multiply(self, a: float, b: float) -> float:
         """
         Multiply two numbers.
         """
         result = a * b
-        self.history.append(Operation('multiply', (a, b), result))
+        self.history.append(Operation(operation_type='multiply', operands=(a, b), result=result))
         return result
 
-    @utils()
-    def divide(self, a: float, b: float) -> float:
+    @tool()
+    def divide(self, a: float, b: float) -> str:
         """
         Divide two numbers.
         """
         if b == 0:
             return "Error: Cannot divide by zero."
         result = a / b
-        self.history.append(Operation('divide', (a, b), result))
-        return result
+        self.history.append(Operation(operation_type='divide', operands=(a, b), result=result))
+        return str(result)
 
-    @utils()
+    @tool()
     def power(self, a: float, b: float) -> float:
         """
         Raise a number to the power of another number.
         """
         result = a ** b
-        self.history.append(Operation('power', (a, b), result))
+        self.history.append(Operation(operation_type='power', operands=(a, b), result=result))
         return result
 
-    @utils()
+    @tool()
     def modulo(self, a: float, b: float) -> float:
         """
         Calculate the modulo of two numbers.
         """
         result = a % b
-        self.history.append(Operation('modulo', (a, b), result))
+        self.history.append(Operation(operation_type='modulo', operands=(a, b), result=result))
         return result
 
-    @utils()
+    @tool()
     def undo(self) -> float:
         """
         Undo the last operation and return the result of the previous operation.
@@ -90,7 +90,7 @@ class CalculatorApp(TruffleApp):
         else:
             return 0.0  # History is empty
 
-    @utils()
+    @tool()
     def store_memory(self) -> str:
         """
         Store the result of the latest operation in memory.
@@ -101,14 +101,14 @@ class CalculatorApp(TruffleApp):
         else:
             return "No result to store in memory."
 
-    @utils()
+    @tool()
     def recall_memory(self) -> float:
         """
         Recall the value stored in memory.
         """
         return self.memory
 
-    @utils()
+    @tool()
     def clear_memory(self) -> str:
         """
         Clear the memory storage.
@@ -119,4 +119,13 @@ class CalculatorApp(TruffleApp):
 app = CalculatorApp()
 
 if __name__ == "__main__":
-    app.start()
+    # Start the app using the Client
+    client = Client()
+    client.start(
+        app=app,
+        mode='rest',  # Can be 'rest' or 'grpc'
+        host='0.0.0.0',
+        port=8000,    # Or any preferred port
+        log_level='info',
+        reload=False
+    )
