@@ -7,16 +7,24 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+stringcase = "^1.2.0"
+pydantic = "^2.10.2"
 
 
 [tool.poetry.group.rest.dependencies]
 fastapi = "^0.115.5"
 uvicorn = "^0.32.1"
+requests = "^2.32.3"
 
 
 [tool.poetry.group.grpc.dependencies]
 grpcio = "^1.68.1"
 grpcio-tools = "^1.68.1"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+stringcase = "^1.2.0"
 
 [build-system]
 requires = ["poetry-core"]
