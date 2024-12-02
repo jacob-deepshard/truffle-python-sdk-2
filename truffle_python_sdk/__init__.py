@@ -1,7 +1,12 @@
-from pydantic import BaseModel
 from functools import wraps
 from typing import Literal
+
 import stringcase
+from pydantic import BaseModel
+
+from truffle_python_sdk.utils import start_grpc_server, generate_proto_file
+
+
 def tool(name: str = None):
     def decorator(func):
         @wraps(func)
@@ -27,152 +32,74 @@ class TruffleApp(BaseModel):
         log_level: str = "info",
         reload: bool = False,
     ):
-        match mode:
-            case "grpc":
-                self._start_grpc_server(host, port, log_level)
-            case "rest":
-                self._start_rest_server(host, port, log_level, reload)
-            case _:
-                raise ValueError(f"Invalid mode: {mode}")
+        if mode == "grpc":
+            if port is None:
+                port = 50051  # Default gRPC port
+            self._start_grpc_server(host, port, log_level)
+        elif mode == "rest":
+            if port is None:
+                port = 8000  # Default REST port
+            self._start_rest_server(host, port, log_level, reload)
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
             
     def _get_tools(self):
         import inspect
         from pydantic import BaseModel
 
+        tools = []
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if callable(attr) and hasattr(attr, '__truffle_tool__'):
                 tool_name = attr.__truffle_tool__['name']
                 sig = inspect.signature(attr)
-                parameters = sig.parameters
-                RequestModel = None
+                parameters = list(sig.parameters.values())[1:]  # Exclude 'self'
+                return_type = sig.return_annotation
 
-                if len(parameters) > 1:  # Exclude 'self'
-                    fields = {}
-                    for name, param in list(parameters.items())[1:]:
-                        annotation = param.annotation if param.annotation != inspect._empty else str
-                        fields[name] = (annotation, ...)
+                # Collect parameter info
+                param_list = []
+                fields = {}
+                for param in parameters:
+                    param_annotation = param.annotation if param.annotation != inspect.Parameter.empty else str
+                    param_list.append({
+                        'name': param.name,
+                        'annotation': param_annotation,
+                    })
+                    fields[param.name] = (param_annotation, ...)
+                
+                # Create RequestModel if necessary
+                RequestModel = None
+                if fields:
                     RequestModel = type(f"{stringcase.capitalize(tool_name)}Request", (BaseModel,), fields)
 
-                yield tool_name, attr, RequestModel
+                tools.append({
+                    'name': tool_name,
+                    'function': attr,
+                    'parameters': param_list,
+                    'return_type': return_type,
+                    'request_model': RequestModel,
+                })
 
-    def _start_grpc_server(
-        self,
-        host: str = "0.0.0.0",
-        port: int = 50051,
-        log_level: str = "info",
-    ):
-        import grpc
-        from concurrent import futures
-        import os
-        from grpc_tools import protoc
+        return tools
 
-        # Step 1: Generate the .proto file
-        proto_content = self._generate_proto_file()
-        proto_file_path = os.path.join(os.getcwd(), 'truffle.proto')
-        with open(proto_file_path, 'w') as f:
-            f.write(proto_content)
+    def _start_grpc_server(self, host: str, port: int, log_level: str):
+        from .utils import start_grpc_server
+        # Extract tools
+        tools = self._get_tools()
+        start_grpc_server(tools, self, host, port, log_level)
 
-        # Step 2: Compile the .proto file
-        protoc.main((
-            '',
-            f'-I{os.getcwd()}',
-            f'--python_out={os.getcwd()}',
-            f'--grpc_python_out={os.getcwd()}',
-            proto_file_path,
-        ))
-
-        # Step 3: Import the generated modules
-        import truffle_pb2
-        import truffle_pb2_grpc
-
-        # Step 4: Implement the Servicer
-        class TruffleServicer(truffle_pb2_grpc.TruffleServicer):
-            def __init__(self, app):
-                self.app = app
-
-            # Dynamically define RPC methods for each tool
-            def __getattr__(self, name):
-                tools = {tool_name: (attr, RequestModel) for tool_name, attr, RequestModel in self.app._get_tools()}
-                if name in tools:
-                    def method(request, context):
-                        attr, RequestModel = tools[name]
-                        kwargs = {field.name: getattr(request, field.name) for field in request.DESCRIPTOR.fields}
-                        result = attr(self.app, **kwargs)
-                        return getattr(truffle_pb2, f'{name}Response')(result=str(result))
-                    return method
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-        # Create a gRPC server
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        truffle_pb2_grpc.add_TruffleServicer_to_server(TruffleServicer(self), server)
-        server.add_insecure_port(f'{host}:{port}')
-        server.start()
-        print(f"gRPC server is running on {host}:{port}...")
-        server.wait_for_termination()
-
-    def _generate_proto_file(self):
-        # Generate the .proto file content based on the tools
-        lines = [
-            'syntax = "proto3";',
-            '',
-            'package truffle;',
-            '',
-            'service Truffle {'
-        ]
-
-        # Collect tools information
-        tools = list(self._get_tools())
-
-        # Define RPC methods in the service
-        for tool_name, _, _ in tools:
-            lines.append(f'  rpc {tool_name}({tool_name}Request) returns ({tool_name}Response);')
-
-        lines.append('}')
-
-        # Define messages for requests and responses
-        for tool_name, _, RequestModel in tools:
-            # Request message
-            lines.append(f'message {tool_name}Request {{')
-            if RequestModel:
-                field_number = 1
-                for field_name, field_type in RequestModel.__annotations__.items():
-                    proto_type = self._python_type_to_proto_type(field_type)
-                    lines.append(f'  {proto_type} {field_name} = {field_number};')
-                    field_number += 1
-            lines.append('}')
-
-            # Response message
-            lines.append(f'message {tool_name}Response {{')
-            # For simplicity, we'll assume result is a string
-            lines.append('  string result = 1;')
-            lines.append('}')
-
-        return '\n'.join(lines)
-
-    def _python_type_to_proto_type(self, python_type):
-        # Map Python types to protobuf types
-        type_map = {
-            int: 'int32',
-            float: 'float',
-            str: 'string',
-            bool: 'bool',
-        }
-        # Handle typing types
-        origin = getattr(python_type, '__origin__', None)
-        if origin:
-            if origin is list:
-                item_type = python_type.__args__[0]
-                return f'repeated {self._python_type_to_proto_type(item_type)}'
-            # Add more cases as needed
-        return type_map.get(python_type, 'string')  # Default to string if unknown
+    def generate_proto_files(self):
+        from .utils import generate_proto_file
+        # Extract tools
+        tools = self._get_tools()
+        generate_proto_file(tools)
 
     def _start_rest_server(
         self,
-        host: str = "0.0.0.0",
-        port: int = 8000,
-        log_level: str = "info",
-        reload: bool = False,
+        host: str,
+        port: int,
+        log_level: str,
+        reload: bool,
     ):
         import uvicorn
         from fastapi import FastAPI
@@ -208,13 +135,3 @@ class TruffleApp(BaseModel):
     @tool()
     def load(self, state: BaseModel):
         self.__dict__.update(state.__dict__)
-
-    def generate_proto_files(self):
-        """
-        Generate the .proto files without starting the server.
-        """
-        proto_content = self._generate_proto_file()
-        proto_file_path = 'truffle.proto'
-        with open(proto_file_path, 'w') as f:
-            f.write(proto_content)
-        print(f"Generated {proto_file_path}")
