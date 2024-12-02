@@ -4,7 +4,6 @@ from typing import List
 
 class ChatApp(TruffleApp):
     conversation: List[str] = []
-    client: Client = Client()
 
     @tool()
     def chat(self, message: str) -> str:

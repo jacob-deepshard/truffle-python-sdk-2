@@ -9,10 +9,8 @@ class ChatApp(TruffleApp):
     """
 
     conversation: List[Dict[str, str]] = []
-    knowledge_base: List[Dict[str, np.ndarray]] = (
-        []
-    )  # Stores texts and their embeddings
-    client: Client = Client()
+    knowledge_base: List[Dict[str, np.ndarray]] = []
+    # Stores texts and their embeddings
 
     def add_to_knowledge_base(self, text: str):
         """

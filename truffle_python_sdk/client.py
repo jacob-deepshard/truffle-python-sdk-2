@@ -14,6 +14,8 @@ class Client:
         log_level: str = "info",
         reload: bool = False,
     ):
+        app.client = self
+        
         if mode == "grpc":
             if port is None:
                 port = 50051  # Default gRPC port
