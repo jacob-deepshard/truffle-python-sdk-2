@@ -19,12 +19,19 @@ def tool(name: str = None):
 
 class TruffleApp(BaseModel):
     
-    def start(self, mode: Literal["grpc", "rest"] = "rest"):
+    def start(
+        self,
+        mode: Literal["grpc", "rest"] = "rest",
+        host: str = "0.0.0.0",
+        port: int = None,
+        log_level: str = "info",
+        reload: bool = False,
+    ):
         match mode:
             case "grpc":
-                self._start_grpc_server()
+                self._start_grpc_server(host, port, log_level)
             case "rest":
-                self._start_rest_server()
+                self._start_rest_server(host, port, log_level, reload)
             case _:
                 raise ValueError(f"Invalid mode: {mode}")
             
@@ -49,7 +56,12 @@ class TruffleApp(BaseModel):
 
                 yield tool_name, attr, RequestModel
 
-    def _start_grpc_server(self):
+    def _start_grpc_server(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 50051,
+        log_level: str = "info",
+    ):
         import grpc
         from concurrent import futures
         import os
@@ -94,9 +106,9 @@ class TruffleApp(BaseModel):
         # Create a gRPC server
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         truffle_pb2_grpc.add_TruffleServicer_to_server(TruffleServicer(self), server)
-        server.add_insecure_port('[::]:50051')
+        server.add_insecure_port(f'{host}:{port}')
         server.start()
-        print("gRPC server is running on port 50051...")
+        print(f"gRPC server is running on {host}:{port}...")
         server.wait_for_termination()
 
     def _generate_proto_file(self):
@@ -155,7 +167,13 @@ class TruffleApp(BaseModel):
             # Add more cases as needed
         return type_map.get(python_type, 'string')  # Default to string if unknown
 
-    def _start_rest_server(self):
+    def _start_rest_server(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 8000,
+        log_level: str = "info",
+        reload: bool = False,
+    ):
         import uvicorn
         from fastapi import FastAPI
         from fastapi.responses import JSONResponse
@@ -175,7 +193,13 @@ class TruffleApp(BaseModel):
             endpoint_func = create_endpoint(attr, RequestModel)
             app.post(f"/{tool_name}")(endpoint_func)
 
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(
+            app,
+            host=host,
+            port=port,
+            log_level=log_level,
+            reload=reload,
+        )
     
     @tool()
     def save(self) -> BaseModel:
@@ -184,3 +208,13 @@ class TruffleApp(BaseModel):
     @tool()
     def load(self, state: BaseModel):
         self.__dict__.update(state.__dict__)
+
+    def generate_proto_files(self):
+        """
+        Generate the .proto files without starting the server.
+        """
+        proto_content = self._generate_proto_file()
+        proto_file_path = 'truffle.proto'
+        with open(proto_file_path, 'w') as f:
+            f.write(proto_content)
+        print(f"Generated {proto_file_path}")
