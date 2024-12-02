@@ -1,7 +1,10 @@
-from quick_and_dirty_grpc_wrapper_scrapper import fn, start_grpc_server_from_python_script
+from truffle_sdk import App, tool
 
-@fn
-def echo(message):
-    return message
+class EchoApp(App):
 
-# @fn adds .__is_exposed__ attribute to the function
+    @tool()
+    def echo(self, message: str) -> str:
+        return message
+
+echo_app = EchoApp()
+echo_app.start()
