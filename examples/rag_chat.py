@@ -1,6 +1,6 @@
 from truffle_python_sdk import TruffleApp, tool, Client
-import numpy as np
 from typing import List, Dict
+import numpy as np  # For local computations
 
 
 class ChatApp(TruffleApp):
@@ -9,15 +9,14 @@ class ChatApp(TruffleApp):
     """
 
     conversation: List[Dict[str, str]] = []
-    knowledge_base: List[Dict[str, np.ndarray]] = []
-    # Stores texts and their embeddings
+    knowledge_base: List[Dict[str, List[float]]] = []  # Use List[float] instead of np.ndarray
 
     def add_to_knowledge_base(self, text: str):
         """
         Add text to the knowledge base along with its embedding.
         """
         # Get embedding for the text using client's embed method
-        embedding_vector = np.array(self.client.embed(text))
+        embedding_vector = self._client.embed(text)  # Should return a List[float]
         # Store the text and its embedding
         self.knowledge_base.append({"text": text, "embedding": embedding_vector})
 
@@ -25,13 +24,14 @@ class ChatApp(TruffleApp):
         """
         Retrieve the most relevant documents from the knowledge base for the given query.
         """
-        query_embedding = np.array(self.client.embed(query))
+        query_embedding = self._client.embed(query)  # Get embedding as List[float]
+        query_embedding_np = np.array(query_embedding)  # Convert to numpy array locally
         similarities = []
         for doc in self.knowledge_base:
-            doc_embedding = doc["embedding"]
+            doc_embedding_np = np.array(doc["embedding"])  # Convert to numpy array locally
             # Compute cosine similarity
-            similarity = np.dot(query_embedding, doc_embedding) / (
-                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
+            similarity = np.dot(query_embedding_np, doc_embedding_np) / (
+                np.linalg.norm(query_embedding_np) * np.linalg.norm(doc_embedding_np)
             )
             similarities.append((similarity, doc["text"]))
         # Sort the documents by similarity in descending order
@@ -70,7 +70,7 @@ class ChatApp(TruffleApp):
         prompt += "\nAssistant:"
 
         # Generate a response using the client's completion method
-        response_text = self.client.completion(prompt)
+        response_text = self._client.completion(prompt)
 
         # Add the assistant's response to the conversation
         self.conversation.append({"role": "assistant", "message": response_text})

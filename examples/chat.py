@@ -14,7 +14,7 @@ class ChatApp(TruffleApp):
         prompt = "\n".join(self.conversation) + "\nAssistant:"
 
         # Generate a response using the client's completion method
-        response_text = self.client.completion(prompt)
+        response_text = self._client.completion(prompt)
 
         # Add the assistant's response to the conversation
         self.conversation.append(f"Assistant: {response_text}")

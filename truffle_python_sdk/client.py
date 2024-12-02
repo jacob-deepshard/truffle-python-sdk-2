@@ -14,7 +14,7 @@ class Client:
         log_level: str = "info",
         reload: bool = False,
     ):
-        app.client = self
+        app._client = self
         
         if mode == "grpc":
             if port is None:
