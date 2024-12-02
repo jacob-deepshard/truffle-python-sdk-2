@@ -26,31 +26,40 @@ def generate_proto_file(tools):
 
     lines.append('}')
 
+    # Collect message definitions to handle duplicates
+    message_definitions = {}
+
     # Define messages for requests and responses
     for tool in tools:
         tool_name = tool['name']
 
         # Request message
-        lines.append(f'message {tool_name}Request {{')
+        request_fields = []
         field_number = 1
         for param in tool.get('parameters', []):
             param_name = param['name']
             param_type = param['annotation']
-            proto_type = python_type_to_proto_type(param_type)
-            lines.append(f'  {proto_type} {param_name} = {field_number};')
+            proto_type = python_type_to_proto_type(param_type, message_definitions)
+            request_fields.append(f'  {proto_type} {param_name} = {field_number};')
             field_number += 1
-        lines.append('}')
+        request_message = f"message {tool_name}Request {{\n" + "\n".join(request_fields) + "\n}}"
+        message_definitions[f"{tool_name}Request"] = request_message
 
         # Response message
-        lines.append(f'message {tool_name}Response {{')
         return_type = tool.get('return_type', None)
+        # Handle complex return types if needed
         if return_type is inspect.Signature.empty:
-            # Default to string if no return type annotation
-            lines.append('  string result = 1;')
+            response_fields = ['  string result = 1;']
         else:
-            proto_type = python_type_to_proto_type(return_type)
-            lines.append(f'  {proto_type} result = 1;')
-        lines.append('}')
+            proto_type = python_type_to_proto_type(return_type, message_definitions)
+            response_fields = [f'  {proto_type} result = 1;']
+        response_message = f"message {tool_name}Response {{\n" + "\n".join(response_fields) + "\n}}"
+        message_definitions[f"{tool_name}Response"] = response_message
+
+    # Append all message definitions
+    for message in message_definitions.values():
+        lines.append('')
+        lines.append(message)
 
     proto_content = '\n'.join(lines)
 
@@ -60,11 +69,11 @@ def generate_proto_file(tools):
         f.write(proto_content)
     print(f"Generated {proto_file_path}")
 
-def python_type_to_proto_type(python_type):
+def python_type_to_proto_type(python_type, message_definitions):
     """
     Map Python types to protobuf types.
     """
-    # Map Python types to protobuf types
+    # Base type mapping
     type_map = {
         int: 'int32',
         float: 'float',
@@ -79,26 +88,40 @@ def python_type_to_proto_type(python_type):
 
     if origin is list or origin is List:
         item_type = args[0] if args else str
-        return f'repeated {python_type_to_proto_type(item_type)}'
+        return f'repeated {python_type_to_proto_type(item_type, message_definitions)}'
     elif origin is dict or origin is Dict:
-        # Protobuf supports maps
-        key_type = python_type_to_proto_type(args[0]) if args else 'string'
-        value_type = python_type_to_proto_type(args[1]) if args else 'string'
+        # Protobuf maps must have scalar types for keys
+        key_type = python_type_to_proto_type(args[0], message_definitions) if args else 'string'
+        value_type = python_type_to_proto_type(args[1], message_definitions) if args else 'string'
         return f'map<{key_type}, {value_type}>'
     elif origin is Union:
         # For Unions, pick the first type (excluding NoneType)
         non_none_types = [t for t in args if t is not type(None)]
         if non_none_types:
-            return python_type_to_proto_type(non_none_types[0])
+            return python_type_to_proto_type(non_none_types[0], message_definitions)
         else:
             return 'string'  # Default to string if only NoneType is present
     elif origin is None:
         return type_map.get(python_type, 'string')  # Handle simple types
+    elif issubclass(python_type, BaseModel):
+        # Generate message for the Pydantic model
+        model_name = python_type.__name__
+        if model_name not in message_definitions:
+            fields = []
+            field_number = 1
+            for name, field in python_type.__fields__.items():
+                field_type = python_type_to_proto_type(field.type_, message_definitions)
+                fields.append(f'  {field_type} {name} = {field_number};')
+                field_number += 1
+            message = f"message {model_name} {{\n" + "\n".join(fields) + "\n}}"
+            message_definitions[model_name] = message
+        return model_name
     else:
-        # For custom types, default to string or raise an error
-        return 'string'  # Adjust as needed
+        # For custom types or complex structures, default to 'string' or define a message
+        return 'string'  # Adjust as needed for complex types
 
-    return type_map.get(python_type, 'string')  # Default to string if unknown
+    # Default to 'string' if type is not recognized
+    return 'string'
 
 def start_grpc_server(tools, app_instance, host="0.0.0.0", port=50051, log_level="info"):
     """
@@ -127,41 +150,34 @@ def start_grpc_server(tools, app_instance, host="0.0.0.0", port=50051, log_level
             self.app_instance = app_instance
             self.tools = {tool['name']: tool for tool in tools}
 
-        # Dynamically define RPC methods for each tool
-        def __getattr__(self, name):
-            if name in self.tools:
-                def method(request, context):
-                    tool = self.tools[name]
-                    func = tool['function']
-                    kwargs = {}
-                    # Extract request parameters
-                    for field in request.DESCRIPTOR.fields:
-                        kwargs[field.name] = getattr(request, field.name)
-                    # Call the tool function
-                    result = func(self.app_instance, **kwargs)
-                    # Build the response
-                    response_class = getattr(truffle_pb2, f'{name}Response')
-                    
-                    # Simplify result if necessary
-                    result = standardize(result)
-                    
-                    # Check if result is of a basic type or a complex object
-                    if isinstance(result, (str, int, float, bool)):
-                        return response_class(result=result)
-                    elif isinstance(result, dict):
-                        # Set fields of the response message
-                        response = response_class(**result)
-                        return response
-                    else:
-                        # Handle serialization for custom objects
-                        response = response_class()
-                        for attr_name in dir(result):
-                            if not attr_name.startswith('_'):
-                                attr_value = getattr(result, attr_name)
-                                setattr(response, attr_name, attr_value)
-                        return response
-                return method
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    # Step 5: Dynamically add RPC methods to the Servicer class
+    for tool_name, tool in ((tool['name'], tool) for tool in tools):
+        request_class = getattr(truffle_pb2, f"{tool_name}Request")
+        response_class = getattr(truffle_pb2, f"{tool_name}Response")
+        func = tool['function']
+
+        def create_rpc_method(func, request_class, response_class):
+            # Define the RPC method
+            def rpc_method(self, request, context):
+                kwargs = {}
+                # Extract request parameters
+                for field in request.DESCRIPTOR.fields:
+                    kwargs[field.name] = getattr(request, field.name)
+                # Call the tool function
+                result = func(self.app_instance, **kwargs)
+                # Simplify result if necessary
+                result = standardize(result)
+                # Build the response
+                if isinstance(result, dict):
+                    return response_class(**result)
+                else:
+                    return response_class(result=result)
+            return rpc_method
+
+        # Add the method to TruffleServicer
+        rpc_method = create_rpc_method(func, request_class, response_class)
+        rpc_method_name = tool_name  # Must match the name defined in .proto
+        setattr(TruffleServicer, rpc_method_name, rpc_method)
 
     # Create a gRPC server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
