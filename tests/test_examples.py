@@ -70,9 +70,16 @@ def test_rag_chat_app_python():
 
 def run_app_in_background(app_instance, mode, host, port):
     # Start the app in a separate thread
+    client = Client()
+    
     def start():
-        app_instance.start(mode=mode, host=host, port=port)
-
+        client.start(
+            app=app_instance,
+            mode=mode,
+            host=host,
+            port=port,
+        )
+    
     thread = threading.Thread(target=start)
     thread.daemon = True
     thread.start()
