@@ -1,11 +1,11 @@
-from truffle_python_sdk import TruffleApp, tool
-from dylans_truffle_sdk import completion
+from truffle_python_sdk import TruffleApp, utils
+from truffle_python_sdk._utils import completion
 from typing import List
 
 class ChatApp(TruffleApp):
     conversation: List[str] = []
 
-    @tool()
+    @utils()
     def chat(self, message: str) -> str:
         # Add the user's message to the conversation
         self.conversation.append(f"User: {message}")

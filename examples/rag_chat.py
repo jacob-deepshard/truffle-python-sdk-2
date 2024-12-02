@@ -1,4 +1,4 @@
-from truffle_python_sdk import TruffleApp, tool
+from truffle_python_sdk import TruffleApp, utils
 from dylans_truffle_sdk import completion, embedding
 import numpy as np
 from typing import List, Dict
@@ -39,7 +39,7 @@ class ChatApp(TruffleApp):
         relevant_texts = [text for _, text in similarities[:top_k]]
         return relevant_texts
 
-    @tool()
+    @utils()
     def add_knowledge(self, text: str) -> str:
         """
         Add text to the knowledge base via an API endpoint.
@@ -47,7 +47,7 @@ class ChatApp(TruffleApp):
         self.add_to_knowledge_base(text)
         return f"Added to knowledge base: {text}"
 
-    @tool()
+    @utils()
     def chat(self, message: str) -> str:
         """
         Chat method to handle user messages and generate responses.

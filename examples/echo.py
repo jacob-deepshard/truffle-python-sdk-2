@@ -1,8 +1,8 @@
-from truffle_python_sdk import TruffleApp, tool
+from truffle_python_sdk import TruffleApp, utils
 
 class EchoApp(TruffleApp):
 
-    @tool()
+    @utils()
     def echo(self, message: str) -> str:
         return message
 
